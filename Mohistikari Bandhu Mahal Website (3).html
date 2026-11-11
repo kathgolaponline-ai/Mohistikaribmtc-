@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mohistikari Bandhu Mahal Tapasili Club</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts for English and Bengali -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Tiro+Bangla:ital@0;1&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Custom Config and Styles -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'puja-red': '#8b0000',
+                        'puja-gold': '#FFD700',
+                        'dark-studio': '#1a1a1a',
+                    },
+                    fontFamily: {
+                        'sans': ['Poppins', 'sans-serif'],
+                        'bengali': ['Tiro Bangla', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Styles for Slider and UI */
+        .slide {
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        .slide.active {
+            opacity: 1;
+            z-index: 1;
+        }
+        .bg-overlay {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 100%);
+        }
+        .nav-scrolled {
+            background-color: rgba(139, 0, 0, 0.95);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .live-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="font-sans bg-gray-50 text-gray-800 relative">
+
+    <!-- REMOTE CAMERA UI (Shows only when accessed via QR Code) -->
+    <div id="remote-camera-ui" class="hidden fixed inset-0 z-[200] bg-black text-white flex-col">
+        <div class="p-4 bg-gray-900 flex justify-between items-center border-b border-gray-800">
+            <h2 class="font-bold text-puja-gold"><i class="fa-solid fa-video text-red-500"></i> Remote Camera <span id="remote-cam-name" class="text-white ml-2">2</span></h2>
+            <button onclick="window.closeRemote()" class="bg-red-600 px-3 py-1 rounded text-sm font-bold">Disconnect</button>
+        </div>
+        <div class="flex-grow relative bg-black flex items-center justify-center">
+            <video id="remote-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+            <canvas id="remote-canvas" class="hidden"></canvas>
+            
+            <div id="remote-status" class="absolute top-4 left-4 bg-black bg-opacity-70 px-3 py-1 rounded text-sm font-bold text-red-500 animate-pulse border border-red-500">
+                <i class="fa-solid fa-satellite-dish"></i> TRANSMITTING TO STUDIO
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM NOTIFICATION MODAL -->
+    <div id="notification-modal" class="hidden fixed inset-0 z-[300] bg-black bg-opacity-80 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-gray-900 border-2 border-puja-gold p-6 rounded-xl shadow-2xl max-w-md w-full relative text-center">
+            <i class="fa-solid fa-circle-exclamation text-5xl text-puja-gold mb-4"></i>
+            <h3 id="notification-title" class="text-xl font-bold text-white mb-2">Notice</h3>
+            <p id="notification-message" class="text-gray-300 mb-6">Message goes here</p>
+            <button onclick="document.getElementById('notification-modal').classList.add('hidden')" class="bg-puja-gold text-black font-bold py-2 px-8 rounded hover:bg-yellow-500 transition">
+                Understood
+            </button>
+        </div>
+    </div>
+
+    <!-- ADMIN LOGIN MODAL -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 z-[250] bg-black bg-opacity-80 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-gray-900 border-2 border-puja-gold p-6 rounded-xl shadow-2xl max-w-sm w-full relative">
+            <button onclick="window.closeAdminLogin()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="text-center mb-6">
+                <i class="fa-solid fa-user-shield text-4xl text-puja-gold mb-2"></i>
+                <h3 class="text-xl font-bold text-white">Admin Studio Login</h3>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">User ID</label>
+                    <input type="text" id="admin-id" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-puja-gold" placeholder="Enter ID (e.g., MBMTC1003)">
+                </div>
+                <div>
+                    <label class="block text-gray-400 text-sm font-bold mb-2">Password</label>
+                    <input type="password" id="admin-pass" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-puja-gold" placeholder="Enter Password">
+                </div>
+                
+                <p id="login-error" class="hidden text-red-500 text-xs font-bold text-center">Invalid ID or Password!</p>
+                
+                <button onclick="window.doAdminLogin()" class="w-full bg-puja-gold text-black font-bold py-2 rounded hover:bg-yellow-500 transition mt-4 shadow-lg">
+                    Access Studio
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav id="navbar" class="fixed w-full z-50 transition-all duration-300 bg-transparent text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-hands-holding-circle text-puja-gold text-3xl"></i>
+                <div>
+                    <h1 class="font-bengali font-bold text-xl md:text-2xl text-puja-gold drop-shadow-md">বন্ধুমহল তফশীল ক্লাব</h1>
+                    <p class="text-xs md:text-sm font-semibold tracking-wider uppercase drop-shadow-md hidden md:block">Mohistikari Bandhu Mahal</p>
+                </div>
+            </div>
+            
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center space-x-6 font-semibold">
+                <a href="#home" class="hover:text-puja-gold transition">Home</a>
+                <a href="#about" class="hover:text-puja-gold transition">About Us</a>
+                <a href="#gallery" class="hover:text-puja-gold transition">Kali Puja Gallery</a>
+                <a href="#live-stream" class="bg-puja-gold text-puja-red px-4 py-1 rounded-full hover:bg-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-tower-broadcast"></i> Live
+                </a>
+                <button onclick="window.openAdminLogin()" class="text-sm text-gray-300 hover:text-white border border-gray-400 px-3 py-1 rounded">Admin</button>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button class="md:hidden text-white focus:outline-none" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                <i class="fa-solid fa-bars text-2xl"></i>
+            </button>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-puja-red absolute top-full left-0 w-full flex flex-col p-4 shadow-lg">
+            <a href="#home" class="py-2 hover:text-puja-gold border-b border-red-800">Home</a>
+            <a href="#about" class="py-2 hover:text-puja-gold border-b border-red-800">About Us</a>
+            <a href="#gallery" class="py-2 hover:text-puja-gold border-b border-red-800">Kali Puja Gallery</a>
+            <a href="#live-stream" class="py-2 text-puja-gold font-bold border-b border-red-800"><i class="fa-solid fa-tower-broadcast"></i> Live Stream</a>
+            <button onclick="window.openAdminLogin()" class="py-2 text-left text-gray-200 font-bold">Admin Login</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section with Background Slider -->
+    <header id="home" class="relative h-screen flex items-center justify-center overflow-hidden">
+        <!-- Slider Images (Using placeholders, you can replace src with actual photos) -->
+        <div id="slider" class="absolute w-full h-full">
+            <img src="https://placehold.co/1920x1080/8b0000/FFD700?text=Kali+Puja+Celebration+1" class="slide active object-cover" alt="Kali Puja 1">
+            <img src="https://placehold.co/1920x1080/4a0000/FFD700?text=Kali+Puja+Celebration+2" class="slide object-cover" alt="Kali Puja 2">
+            <img src="https://placehold.co/1920x1080/2a0000/FFD700?text=Kali+Puja+Celebration+3" class="slide object-cover" alt="Kali Puja 3">
+        </div>
+        
+        <!-- Dark Overlay -->
+        <div class="absolute inset-0 bg-overlay z-10"></div>
+        
+        <!-- Hero Content -->
+        <div class="relative z-20 text-center text-white px-4 max-w-4xl mx-auto">
+            <h2 class="font-bengali text-4xl md:text-6xl lg:text-7xl font-bold mb-4 text-puja-gold drop-shadow-lg">
+                মহিষটিকরী বন্ধুমহল<br>তফশীল ক্লাব
+            </h2>
+            <h3 class="text-2xl md:text-4xl font-bold mb-6 drop-shadow-lg uppercase tracking-widest">
+                Mohistikari Bandhu Mahal<br>Tapasili Club
+            </h3>
+            <p class="text-lg md:text-xl mb-8 font-light drop-shadow-md">
+                স্থাপিত - ১৯৮৭ | Reg No: S/IL/No-73100
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#gallery" class="bg-puja-gold text-puja-red font-bold py-3 px-8 rounded-full shadow-lg hover:bg-yellow-300 transition hover:scale-105">
+                    View Puja Gallery
+                </a>
+                <a href="#live-stream" class="bg-transparent border-2 border-white text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-white hover:text-puja-red transition hover:scale-105">
+                    Watch Live stream
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- About Section -->
+    <section id="about" class="py-20 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col lg:flex-row items-center gap-12">
+                <div class="w-full lg:w-1/2">
+                    <!-- Reference Image provided by user -->
+                    <div class="rounded-xl overflow-hidden shadow-2xl border-4 border-puja-gold">
+                        <img src="1000587559.jpg" alt="Club Banner Signboard" class="w-full h-auto object-cover" onerror="this.src='https://placehold.co/800x600/eee/333?text=Club+Signboard+(1000587559.jpg)'">
+                    </div>
+                </div>
+                <div class="w-full lg:w-1/2 space-y-6">
+                    <div class="inline-block bg-red-100 text-puja-red font-bold px-4 py-1 rounded-full text-sm mb-2">
+                        About Our Club
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-bold text-gray-800">Preserving Tradition Since <span class="text-puja-red">1987</span></h2>
+                    <p class="text-gray-600 leading-relaxed text-lg">
+                        Welcome to the official website of the <strong class="text-puja-red">Mohistikari Bandhu Mahal Tapasili Club</strong>. 
+                        Established in 1987, our club has been a cornerstone of cultural and social harmony in our community. 
+                        We are officially registered under the Government of West Bengal with Registration Number <span class="font-mono bg-gray-200 px-2 rounded">S/IL/No-73100</span>.
+                    </p>
+                    <p class="text-gray-600 leading-relaxed text-lg">
+                        Every year, we organize a grand Kali Puja, bringing together devotees and community members for days of devotion, joy, and celebration.
+                    </p>
+                    
+                    <div class="bg-gray-50 p-6 rounded-lg border-l-4 border-puja-gold shadow-sm">
+                        <h4 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-location-dot text-puja-red"></i> Club Location
+                        </h4>
+                        <p class="text-gray-700">
+                            Mohistikari, Bagpara,<br>
+                            Haripal, Hooghly,<br>
+                            Pin - 712223, West Bengal
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Kali Puja Gallery Section -->
+    <section id="gallery" class="py-20 bg-gray-100">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-5xl font-bold text-puja-red font-bengali mb-4">কালী পুজো গ্যালারি</h2>
+                <h3 class="text-xl text-gray-600 font-semibold uppercase tracking-wide">Kali Puja Photo Gallery</h3>
+                <div class="w-24 h-1 bg-puja-gold mx-auto mt-4 rounded"></div>
+            </div>
+            
+            <!-- Grid Gallery -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Gallery Item 1 -->
+                <div class="group relative rounded-xl overflow-hidden shadow-lg cursor-pointer h-72">
+                    <img src="https://placehold.co/600x600/8b0000/FFD700?text=Maa+Kali+Idol" alt="Maa Kali Idol" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <p class="text-white font-bold text-lg">Maa Kali Idol</p>
+                    </div>
+                </div>
+                <!-- Gallery Item 2 -->
+                <div class="group relative rounded-xl overflow-hidden shadow-lg cursor-pointer h-72">
+                    <img src="https://placehold.co/600x600/222/FFD700?text=Pandal+Decoration" alt="Pandal Decoration" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <p class="text-white font-bold text-lg">Pandal Decoration</p>
+                    </div>
+                </div>
+                <!-- Gallery Item 3 -->
+                <div class="group relative rounded-xl overflow-hidden shadow-lg cursor-pointer h-72">
+                    <img src="https://placehold.co/600x600/8b0000/fff?text=Night+Illumination" alt="Lighting" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <p class="text-white font-bold text-lg">Night Illumination</p>
+                    </div>
+                </div>
+                 <!-- Gallery Item 4 -->
+                 <div class="group relative rounded-xl overflow-hidden shadow-lg cursor-pointer h-72">
+                    <img src="https://placehold.co/600x600/111/FFD700?text=Devotees+Gathering" alt="Devotees" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <p class="text-white font-bold text-lg">Devotees Gathering</p>
+                    </div>
+                </div>
+                <!-- Gallery Item 5 -->
+                <div class="group relative rounded-xl overflow-hidden shadow-lg cursor-pointer h-72 col-span-1 sm:col-span-2 lg:col-span-2">
+                    <img src="https://placehold.co/1200x600/8b0000/FFD700?text=Immersion+Procession+(Bhasan)" alt="Bhasan" class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <p class="text-white font-bold text-xl">Immersion Procession (Bhasan)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRO LIVE STREAM & BROADCASTER STUDIO SECTION -->
+    <section id="live-stream" class="py-20 bg-dark-studio text-white">
+        <div class="container mx-auto px-4 max-w-7xl">
+            
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-5xl font-bold text-white mb-2 flex items-center justify-center gap-4">
+                    <i class="fa-solid fa-video text-red-500"></i> 
+                    Live Broadcasting
+                </h2>
+                <p class="text-gray-400">Watch the Kali Puja live or access the Admin Studio to broadcast.</p>
+            </div>
+
+            <!-- Tab Navigation for Viewer / Broadcaster -->
+            <div class="flex justify-center mb-8 border-b border-gray-700">
+                <button onclick="window.switchLiveTab('viewer')" id="btn-viewer" class="px-6 py-3 font-bold border-b-4 border-puja-gold text-puja-gold transition">
+                    <i class="fa-solid fa-eye"></i> Viewer Mode
+                </button>
+                <button onclick="window.switchLiveTab('studio')" id="btn-studio" class="px-6 py-3 font-bold border-b-4 border-transparent text-gray-400 hover:text-white transition">
+                    <i class="fa-solid fa-sliders"></i> Admin Studio (2-Cam Switcher)
+                </button>
+            </div>
+
+            <!-- VIEW MODE (What visitors see) -->
+            <div id="tab-viewer" class="block max-w-4xl mx-auto">
+                <div class="bg-gray-900 rounded-xl overflow-hidden shadow-[0_0_30px_rgba(139,0,0,0.5)] border border-gray-800">
+                    <!-- Top Bar -->
+                    <div class="bg-black p-3 flex justify-between items-center border-b border-gray-800">
+                        <div class="flex items-center gap-3">
+                            <img src="1000587559.jpg" onerror="this.src='https://placehold.co/40x40/8b0000/fff?text=MB'" class="w-10 h-10 rounded-full object-cover border border-gray-700">
+                            <div>
+                                <h4 class="font-bold text-sm">Mohistikari Bandhu Mahal</h4>
+                                <p class="text-xs text-gray-400">Kali Puja Live Feed</p>
+                            </div>
+                        </div>
+                        <div class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded flex items-center gap-2 live-badge">
+                            <div class="w-2 h-2 bg-white rounded-full"></div> LIVE
+                        </div>
+                    </div>
+                    
+                    <!-- Viewers Stream Screen (Uses Image updated via Firebase for seamless multi-viewer sync) -->
+                    <div class="video-container group relative">
+                        <img id="viewer-img" src="https://placehold.co/1280x720/1a1a1a/444?text=Waiting+for+Stream..." class="w-full h-full object-cover transition-opacity duration-200">
+                        
+                        <!-- Overlay when no stream is active -->
+                        <div id="viewer-offline-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-95 z-10">
+                            <i class="fa-solid fa-video-slash text-6xl text-gray-600 mb-4"></i>
+                            <h3 class="text-xl font-bold">Live Stream is offline</h3>
+                            <p class="text-gray-400 mt-2">Waiting for admin to start the broadcast...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BROADCASTER STUDIO (Admin Only) -->
+            <div id="tab-studio" class="hidden relative">
+                <!-- Lock Overlay -->
+                <div id="studio-lock" class="absolute inset-0 bg-black bg-opacity-90 z-20 flex flex-col items-center justify-center rounded-xl border border-gray-800">
+                    <i class="fa-solid fa-lock text-5xl text-gray-500 mb-4"></i>
+                    <h3 class="text-2xl font-bold text-white mb-2">Admin Access Required</h3>
+                    <p class="text-gray-400 mb-6">You must be logged in to manage the live stream and cameras.</p>
+                    <button onclick="window.openAdminLogin()" class="bg-puja-gold text-puja-red font-bold px-6 py-2 rounded shadow hover:bg-yellow-400 transition">
+                        Login Now
+                    </button>
+                </div>
+
+                <div class="bg-gray-900 rounded-xl p-4 md:p-6 border border-gray-800">
+                    <div class="flex flex-col lg:flex-row justify-between items-center mb-6 border-b border-gray-700 pb-4 gap-4">
+                        <div>
+                            <h3 class="text-2xl font-bold text-puja-gold">Multi-Cam Admin Studio</h3>
+                            <p class="text-sm text-gray-400">Switch between local and remote QR code cameras.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 justify-center">
+                            <button onclick="window.toggleFBLive()" id="btn-fb" class="bg-[#1877F2] hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold text-sm transition flex items-center gap-2">
+                                <i class="fa-brands fa-facebook-f"></i> Simulcast to FB
+                            </button>
+                            <button onclick="window.initCameras()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold text-sm transition flex items-center gap-2">
+                                <i class="fa-solid fa-camera"></i> Init Local Cam
+                            </button>
+                            <button onclick="window.toggleBroadcast()" id="btn-broadcast" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold text-sm transition flex items-center gap-2 disabled:opacity-50">
+                                <i class="fa-solid fa-play"></i> Start Broadcast
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Studio Grid Layout -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- Left Sidebar: Camera Inputs (Preview) -->
+                        <div class="lg:col-span-1 space-y-4">
+                            <h4 class="font-bold text-gray-300 border-b border-gray-700 pb-2 flex justify-between">
+                                Input Sources
+                                <span class="text-xs bg-gray-700 px-2 py-1 rounded">2 Available</span>
+                            </h4>
+                            
+                            <!-- Camera 1 (Local Device) -->
+                            <div class="bg-black rounded-lg border-2 border-puja-gold transition-all duration-300 relative group" id="cam1-container">
+                                <div class="p-2 bg-gray-800 text-xs font-bold flex justify-between items-center rounded-t">
+                                    <span class="flex items-center gap-1"><i class="fa-solid fa-laptop text-blue-400"></i> CAM 1 (Local)</span>
+                                </div>
+                                <div class="video-container aspect-video relative">
+                                    <!-- Local video feed -->
+                                    <video id="cam1-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                                    <canvas id="cam1-canvas" class="hidden"></canvas>
+                                </div>
+                                <button onclick="window.cutToCamera('cam1')" class="w-full bg-gray-700 hover:bg-puja-gold hover:text-black text-white font-bold py-2 rounded-b transition flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-scissors"></i> CUT TO CAM 1
+                                </button>
+                            </div>
+
+                            <!-- Camera 2 (Remote Device via QR) -->
+                            <div class="bg-black rounded-lg border-2 border-gray-800 transition-all duration-300 relative group" id="cam2-container">
+                                <div class="p-2 bg-gray-800 text-xs font-bold flex justify-between items-center rounded-t">
+                                    <span class="flex items-center gap-1"><i class="fa-solid fa-mobile-screen text-green-400"></i> CAM 2 (Remote)</span>
+                                    <span id="cam2-status" class="text-[10px] text-gray-400">Waiting...</span>
+                                </div>
+                                <div class="video-container aspect-video relative bg-gray-900 flex items-center justify-center flex-col p-2">
+                                    
+                                    <!-- Streamed from firebase -->
+                                    <img id="cam2-img" src="" class="w-full h-full object-cover hidden absolute inset-0 z-10">
+                                    
+                                    <!-- QR Code UI -->
+                                    <div id="qr-container" class="z-0 flex flex-col items-center text-center">
+                                        <div id="qrcode" class="bg-white p-1 rounded mb-2"></div>
+                                        <p class="text-[10px] text-gray-400 leading-tight">Scan with 2nd phone to connect Camera 2.</p>
+                                    </div>
+
+                                </div>
+                                <button onclick="window.cutToCamera('cam2')" class="w-full bg-gray-700 hover:bg-puja-gold hover:text-black text-white font-bold py-2 rounded-b transition flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-scissors"></i> CUT TO CAM 2
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Right Area: Program Output (Live) -->
+                        <div class="lg:col-span-2 flex flex-col">
+                            <h4 class="font-bold text-gray-300 border-b border-gray-700 pb-2 mb-4">Program Output (LIVE to Viewers)</h4>
+                            
+                            <div class="bg-black p-2 rounded-xl border-4 border-gray-800 transition-colors duration-300 flex-grow flex flex-col relative" id="program-container">
+                                <!-- Status Indicator -->
+                                <div class="absolute top-4 right-4 z-20 flex gap-2">
+                                    <span id="studio-live-indicator" class="hidden bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow live-badge uppercase tracking-wider">On Air</span>
+                                    <span id="fb-live-indicator" class="hidden bg-[#1877F2] text-white text-xs font-bold px-3 py-1 rounded shadow flex items-center gap-1"><i class="fa-brands fa-facebook"></i> FB LIVE</span>
+                                </div>
+                                
+                                <!-- Main Output -->
+                                <div class="video-container flex-grow relative bg-gray-900 rounded">
+                                    <img id="program-img" src="https://placehold.co/1280x720/111/333?text=Program+Monitor" class="w-full h-full object-cover">
+                                    
+                                    <div id="studio-offline-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 z-10 text-center p-4">
+                                        <i class="fa-solid fa-tower-cell text-4xl text-gray-500 mb-2"></i>
+                                        <p class="text-gray-400 text-sm">Select an Input and click "Start Broadcast"</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Audio / Stream Controls -->
+                                <div class="mt-4 bg-gray-800 p-3 rounded flex justify-between items-center">
+                                    <div class="flex items-center gap-4 text-sm text-gray-300">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-microphone"></i> Master Audio (Simulated)
+                                        </div>
+                                        <input type="range" class="w-24 md:w-32 accent-puja-gold" value="80">
+                                    </div>
+                                    <div class="text-xs text-gray-400 font-mono">
+                                        Data-Link: Active | Res: 720p
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-puja-red text-white py-10 border-t-4 border-puja-gold">
+        <div class="container mx-auto px-4 text-center">
+            <div class="flex justify-center mb-6">
+                <i class="fa-solid fa-hands-holding-circle text-puja-gold text-5xl"></i>
+            </div>
+            <h2 class="text-2xl font-bengali font-bold mb-2">মহিষটিকরী বন্ধুমহল তফশীল ক্লাব</h2>
+            <h3 class="text-lg font-bold mb-4 uppercase tracking-widest text-puja-gold">Mohistikari Bandhu Mahal Tapasili Club</h3>
+            <p class="mb-2"><i class="fa-solid fa-calendar-alt text-puja-gold mr-2"></i> Established: 1987</p>
+            <p class="mb-2"><i class="fa-solid fa-id-card text-puja-gold mr-2"></i> Reg: S/IL/No-73100</p>
+            <p class="mb-6"><i class="fa-solid fa-map-marker-alt text-puja-gold mr-2"></i> Mohistikari, Bagpara, Haripal, Hooghly, Pin - 712223</p>
+            
+            <div class="flex justify-center gap-4 mb-6">
+                <a href="#" class="w-10 h-10 rounded-full bg-white text-puja-red flex items-center justify-center hover:bg-puja-gold transition">
+                    <i class="fa-brands fa-facebook-f text-xl"></i>
+                </a>
+                <a href="#" class="w-10 h-10 rounded-full bg-white text-puja-red flex items-center justify-center hover:bg-puja-gold transition">
+                    <i class="fa-brands fa-youtube text-xl"></i>
+                </a>
+            </div>
+            
+            <p class="text-sm text-red-300">&copy; 2026 Mohistikari Bandhu Mahal Tapasili Club. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript functionality -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global state and env setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mbmtc-live-app';
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                // Fallback dummy config to prevent crashing if environment lacks it immediately
+                apiKey: "dummy", authDomain: "dummy", projectId: "dummy" 
+            };
+        } catch(e) { console.warn("Firebase config missing."); }
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const liveDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'mbmtc_livestream', 'state');
+
+        let isAdmin = false;
+        let isBroadcasting = false;
+        let activeCam = 'cam1';
+        let localStream = null;
+        let remoteStream = null;
+        let transmitInterval = null;
+        
+        // Custom Modal UI
+        window.showNotification = (title, message) => {
+            document.getElementById('notification-title').innerText = title;
+            document.getElementById('notification-message').innerText = message;
+            document.getElementById('notification-modal').classList.remove('hidden');
+        };
+
+        // Ensure UI functions are available to HTML buttons
+        window.switchLiveTab = (tab) => {
+            document.getElementById('tab-viewer').classList.toggle('hidden', tab !== 'viewer');
+            document.getElementById('tab-viewer').classList.toggle('block', tab === 'viewer');
+            document.getElementById('tab-studio').classList.toggle('hidden', tab !== 'studio');
+            document.getElementById('tab-studio').classList.toggle('block', tab === 'studio');
+            
+            document.getElementById('btn-viewer').className = tab === 'viewer' 
+                ? "px-6 py-3 font-bold border-b-4 border-puja-gold text-puja-gold transition" 
+                : "px-6 py-3 font-bold border-b-4 border-transparent text-gray-400 hover:text-white transition";
+            
+            document.getElementById('btn-studio').className = tab === 'studio' 
+                ? "px-6 py-3 font-bold border-b-4 border-puja-gold text-puja-gold transition" 
+                : "px-6 py-3 font-bold border-b-4 border-transparent text-gray-400 hover:text-white transition";
+        };
+
+        window.openAdminLogin = () => {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('admin-id').value = '';
+            document.getElementById('admin-pass').value = '';
+        };
+
+        window.closeAdminLogin = () => {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        };
+
+        window.doAdminLogin = () => {
+            const id = document.getElementById('admin-id').value;
+            const pass = document.getElementById('admin-pass').value;
+            if (id === 'MBMTC1003' && pass === 'Adminatm1003') {
+                isAdmin = true;
+                window.closeAdminLogin();
+                document.getElementById('studio-lock').classList.add('hidden');
+                window.switchLiveTab('studio');
+                generateQRCode();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        };
+
+        window.toggleFBLive = () => {
+            const btn = document.getElementById('btn-fb');
+            const ind = document.getElementById('fb-live-indicator');
+            if(btn.classList.contains('bg-[#1877F2]')) {
+                window.showNotification("Simulcast Ended", "Stream connection to Facebook Page RTMP disconnected.");
+                btn.classList.remove('bg-[#1877F2]');
+                btn.classList.add('bg-blue-900', 'text-gray-300');
+                btn.innerHTML = '<i class="fa-brands fa-facebook-f"></i> FB Simulcast Active';
+                ind.classList.remove('hidden');
+            } else {
+                btn.classList.add('bg-[#1877F2]');
+                btn.classList.remove('bg-blue-900', 'text-gray-300');
+                btn.innerHTML = '<i class="fa-brands fa-facebook-f"></i> Simulcast to FB';
+                ind.classList.add('hidden');
+            }
+        };
+
+        // UI aesthetics
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('nav-scrolled', 'py-2');
+                nav.classList.remove('py-4');
+            } else {
+                nav.classList.remove('nav-scrolled', 'py-2');
+                nav.classList.add('py-4');
+            }
+        });
+        
+        // Image Slider
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        setInterval(() => {
+            if(slides.length > 0) {
+                slides[currentSlide].classList.remove('active');
+                currentSlide = (currentSlide + 1) % slides.length;
+                slides[currentSlide].classList.add('active');
+            }
+        }, 4000);
+
+        // --- Core Firebase Auth ---
+        signInAnonymously(auth).then(() => {
+            // Setup realtime listener for Viewer Mode & Admin Previews
+            onSnapshot(liveDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    // Viewer update
+                    const viewerImg = document.getElementById('viewer-img');
+                    const viewerOffline = document.getElementById('viewer-offline-overlay');
+                    if (data.isLive && data.program) {
+                        viewerImg.src = data.program;
+                        viewerOffline.classList.add('hidden');
+                    } else {
+                        viewerOffline.classList.remove('hidden');
+                    }
+
+                    // Admin Studio update (if logged in)
+                    if (isAdmin) {
+                        if (data.cam2) {
+                            document.getElementById('cam2-img').src = data.cam2;
+                            document.getElementById('cam2-img').classList.remove('hidden');
+                            document.getElementById('qr-container').classList.add('hidden');
+                            document.getElementById('cam2-status').innerText = 'Connected';
+                            document.getElementById('cam2-status').classList.add('text-green-400');
+                        }
+                        // Admin sees Program output
+                        if (data.program) {
+                            document.getElementById('program-img').src = data.program;
+                        }
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore error:", error);
+            });
+
+            // Handle Remote Camera URL Parameter mapping
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'remote' && urlParams.get('cam') === 'cam2') {
+                document.body.style.overflow = 'hidden';
+                document.getElementById('remote-camera-ui').classList.remove('hidden');
+                document.getElementById('remote-camera-ui').classList.add('flex');
+                startRemoteCameraTransmit();
+            }
+        }).catch(e => console.error("Auth error:", e));
+
+        // --- Mock Camera Generator for restricted environments ---
+        function createMockStream(label) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640; canvas.height = 360;
+            const ctx = canvas.getContext('2d');
+            let hue = 0;
+            
+            // Draw moving pattern
+            setInterval(() => {
+                ctx.fillStyle = `hsl(${hue}, 70%, 20%)`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add some dynamic shapes
+                ctx.fillStyle = `hsl(${(hue + 180) % 360}, 80%, 50%)`;
+                ctx.beginPath();
+                ctx.arc(320 + Math.sin(hue/10)*100, 180 + Math.cos(hue/15)*50, 50, 0, Math.PI*2);
+                ctx.fill();
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, 320, 150);
+                
+                ctx.font = '20px Arial';
+                ctx.fillText("Simulated Feed (Hardware Blocked)", 320, 210);
+                
+                ctx.fillText(new Date().toLocaleTimeString(), 320, 250);
+                
+                hue = (hue + 2) % 360;
+            }, 1000/30);
+            
+            // captureStream is supported in most modern browsers
+            return canvas.captureStream ? canvas.captureStream(30) : null;
+        }
+
+        // --- Broadcaster Logic ---
+        
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            
+            // Build URL for the remote camera (append param to current URL)
+            const remoteUrl = window.location.href.split('?')[0] + '?mode=remote&cam=cam2';
+            
+            new QRCode(qrContainer, {
+                text: remoteUrl,
+                width: 100,
+                height: 100,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+
+        window.initCameras = async () => {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("getUserMedia API not supported or secure context required.");
+                }
+                localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 360 }, audio: false });
+            } catch (err) {
+                console.warn("Real camera access failed:", err);
+                window.showNotification("Camera Blocked", "Real camera access is denied by browser or embedded permissions. Falling back to a simulated Mock Camera for testing.");
+                localStream = createMockStream("STUDIO CAM 1");
+            }
+
+            if(localStream) {
+                const videoEl = document.getElementById('cam1-video');
+                videoEl.srcObject = localStream;
+                document.getElementById('studio-offline-overlay').classList.add('hidden');
+                
+                // Start transmitting Cam 1 to Firebase every 300ms
+                if (transmitInterval) clearInterval(transmitInterval);
+                transmitInterval = setInterval(transmitAdminFrames, 300);
+                
+                window.cutToCamera('cam1'); // Default to Cam 1
+            }
+        };
+
+        window.cutToCamera = (camId) => {
+            activeCam = camId;
+            // Visual Update in Studio
+            document.getElementById('cam1-container').classList.remove('border-puja-gold');
+            document.getElementById('cam2-container').classList.remove('border-puja-gold');
+            document.getElementById('cam1-container').classList.add('border-gray-800');
+            document.getElementById('cam2-container').classList.add('border-gray-800');
+            
+            document.getElementById(`${camId}-container`).classList.remove('border-gray-800');
+            document.getElementById(`${camId}-container`).classList.add('border-puja-gold');
+        };
+
+        window.toggleBroadcast = async () => {
+            if(!isAdmin) return;
+            const btn = document.getElementById('btn-broadcast');
+            const indicator = document.getElementById('studio-live-indicator');
+            const progContainer = document.getElementById('program-container');
+
+            if (!isBroadcasting) {
+                isBroadcasting = true;
+                btn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop Broadcast';
+                btn.classList.replace('bg-green-600', 'bg-red-600');
+                btn.classList.replace('hover:bg-green-700', 'hover:bg-red-700');
+                indicator.classList.remove('hidden');
+                progContainer.classList.replace('border-gray-800', 'border-red-600');
+                
+                // Alert DB
+                await setDoc(liveDocRef, { isLive: true }, { merge: true });
+            } else {
+                isBroadcasting = false;
+                btn.innerHTML = '<i class="fa-solid fa-play"></i> Start Broadcast';
+                btn.classList.replace('bg-red-600', 'bg-green-600');
+                btn.classList.replace('hover:bg-red-700', 'hover:bg-green-700');
+                indicator.classList.add('hidden');
+                progContainer.classList.replace('border-red-600', 'border-gray-800');
+                
+                // Alert DB
+                await setDoc(liveDocRef, { isLive: false }, { merge: true });
+            }
+        };
+
+        // Capture local video to canvas and send to Firebase as base64 JPEG
+        async function transmitAdminFrames() {
+            if (!localStream) return;
+            
+            const video = document.getElementById('cam1-video');
+            const canvas = document.getElementById('cam1-canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Highly compressed JPEG to save bandwidth and ensure realtime feel
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.4); 
+            
+            let updatePayload = { cam1: dataUrl };
+            
+            // If we are live, push the active camera's frame to the program monitor
+            if (isBroadcasting) {
+                if (activeCam === 'cam1') {
+                    updatePayload.program = dataUrl;
+                } else if (activeCam === 'cam2') {
+                    // Pull the last known cam2 frame from the img src and push it to program
+                    const cam2ImgSrc = document.getElementById('cam2-img').src;
+                    if (cam2ImgSrc && cam2ImgSrc.startsWith('data:image')) {
+                        updatePayload.program = cam2ImgSrc;
+                    }
+                }
+            } else {
+                // Not broadcasting, but still update the program monitor locally in studio
+                if (activeCam === 'cam1') {
+                    document.getElementById('program-img').src = dataUrl;
+                } else if (activeCam === 'cam2') {
+                     const cam2ImgSrc = document.getElementById('cam2-img').src;
+                     if (cam2ImgSrc && cam2ImgSrc.startsWith('data:image')) {
+                        document.getElementById('program-img').src = cam2ImgSrc;
+                     }
+                }
+            }
+
+            try {
+                await setDoc(liveDocRef, updatePayload, { merge: true });
+            } catch(e) { console.error(e); }
+        }
+
+        // --- Remote Camera Logic (2nd Device via QR) ---
+        window.closeRemote = () => {
+            window.location.search = '';
+        };
+
+        async function startRemoteCameraTransmit() {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("getUserMedia API not supported or secure context required.");
+                }
+                // Prefer rear camera for the remote device
+                remoteStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: 640, height: 360 }, 
+                    audio: false 
+                });
+            } catch (err) {
+                console.warn("Real remote camera access failed:", err);
+                window.showNotification("Camera Blocked", "Device camera access is denied. Falling back to a simulated Mock Camera so you can test the multi-cam switching!");
+                remoteStream = createMockStream("REMOTE CAM 2 (QR)");
+            }
+            
+            if(remoteStream) {
+                const videoEl = document.getElementById('remote-video');
+                videoEl.srcObject = remoteStream;
+                
+                setInterval(async () => {
+                    if (!remoteStream) return;
+                    const canvas = document.getElementById('remote-canvas');
+                    canvas.width = videoEl.videoWidth || 640;
+                    canvas.height = videoEl.videoHeight || 360;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+                    try {
+                        // Send frame as 'cam2'
+                        await setDoc(liveDocRef, { cam2: dataUrl }, { merge: true });
+                    } catch(e) { console.error("Remote transmit error", e); }
+                }, 300); // 300ms interval for balanced performance
+            }
+        }
+    </script>
+</body>
+</html>
